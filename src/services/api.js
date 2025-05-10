@@ -1,29 +1,59 @@
-import axios from "axios"
+import axios from "axios";
 
-const API_URL = "/api"
+const API_URL = import.meta.env.VITE_API_URL;
 
 const api = {
+  // Auth
+  login: (data) => axios.post(`${API_URL}/auth/login`, data),
+  register: (data) => axios.post(`${API_URL}/auth/register`, data),
+  
   // Lessons
   getLessons: () => axios.get(`${API_URL}/lessons`),
   getLessonById: (id) => axios.get(`${API_URL}/lessons/${id}`),
+  createLesson: (data) => axios.post(`${API_URL}/lessons`, data),
+  updateLesson: (id, data) => axios.put(`${API_URL}/lessons/${id}`, data),
+  deleteLesson: (id) => axios.delete(`${API_URL}/lessons/${id}`),
 
   // Enrollments
   getEnrollments: () => axios.get(`${API_URL}/enrollments`),
   getUserEnrollments: (userId) => axios.get(`${API_URL}/users/${userId}/enrollments`),
   createEnrollment: (data) => axios.post(`${API_URL}/enrollments`, data),
+  updateEnrollment: (id, data) => axios.put(`${API_URL}/enrollments/${id}`, data),
 
   // Payments
-  processPayment: (data) => axios.post(`${API_URL}/payments`, data),
-  getPayments: () => axios.get(`${API_URL}/payments`),
+  initializePayment: (data) => axios.post(`${API_URL}/payments/initialize`, data),
   verifyPayment: (reference) => axios.get(`${API_URL}/payments/verify/${reference}`),
+  getPayments: () => axios.get(`${API_URL}/payments`),
+  getPaymentById: (id) => axios.get(`${API_URL}/payments/${id}`),
 
   // Users
+  getUsers: () => axios.get(`${API_URL}/users`),
   getUserById: (id) => axios.get(`${API_URL}/users/${id}`),
+  updateUser: (id, data) => axios.put(`${API_URL}/users/${id}`, data),
 
-  // Ghana-specific
-  getLocations: () => axios.get(`${API_URL}/locations/ghana`),
-  getMobileMoneyProviders: () => axios.get(`${API_URL}/payment-methods/mobile-money`),
-}
+  // Stats
+  getDashboardStats: () => axios.get(`${API_URL}/stats/dashboard`),
+};
 
-export default api
+// Add request interceptor for auth
+axios.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
+// Add response interceptor for error handling
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default api;

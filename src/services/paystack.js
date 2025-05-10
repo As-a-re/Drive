@@ -1,35 +1,72 @@
-import { PaystackButton } from "react-paystack"
+import axios from 'axios';
 
-// Paystack configuration
-const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_your_public_key"
+const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY;
 
-export const initializePayment = ({ amount, email, name, phone, metadata, onSuccess, onClose }) => {
-  const config = {
-    reference: new Date().getTime().toString(),
-    email,
-    amount: amount * 100, // Paystack amount is in kobo (pesewas for Ghana)
-    publicKey: paystackPublicKey,
-    firstname: name.split(" ")[0],
-    lastname: name.split(" ").slice(1).join(" "),
-    phone,
-    metadata,
-    currency: "GHS", // Ghana Cedis
-    channels: ["card", "bank", "mobile_money", "ussd"],
-    label: "DriveRight Academy",
-    onSuccess,
-    onClose,
+export const initializePayment = async ({
+  email,
+  amount,
+  metadata,
+  callback_url,
+  reference,
+}) => {
+  try {
+    const response = await axios.post(
+      'https://api.paystack.co/transaction/initialize',
+      {
+        email,
+        amount: amount * 100, // Convert to kobo/pesewas
+        metadata,
+        callback_url,
+        reference,
+        currency: 'GHS',
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${PAYSTACK_PUBLIC_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data;
+  } catch (error) {
+    console.error('Paystack initialization error:', error);
+    throw error;
   }
-
-  return <PaystackButton {...config} className="w-full" />
-}
+};
 
 export const verifyPayment = async (reference) => {
   try {
-    const response = await fetch(`/api/payments/verify/${reference}`)
-    return await response.json()
+    const response = await axios.get(
+      `/api/payments/verify/${reference}`
+    );
+    return response.data;
   } catch (error) {
-    console.error("Error verifying payment:", error)
-    throw error
+    console.error('Payment verification error:', error);
+    throw error;
   }
-}
+};
 
+export const getPaystackConfig = (data) => ({
+  reference: `REF-${Date.now()}`,
+  email: data.email,
+  amount: data.amount * 100,
+  publicKey: PAYSTACK_PUBLIC_KEY,
+  metadata: {
+    custom_fields: [
+      {
+        display_name: "Lesson",
+        variable_name: "lesson",
+        value: data.lessonTitle,
+      },
+      {
+        display_name: "Student Name",
+        variable_name: "student_name",
+        value: data.fullName,
+      },
+    ],
+  },
+  text: 'Pay Now',
+  onSuccess: (reference) => data.onSuccess(reference),
+  onClose: () => data.onClose(),
+});
