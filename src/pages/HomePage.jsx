@@ -1,5 +1,4 @@
-"use client"
-
+import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { motion } from "framer-motion"
 import { ArrowRight, Calendar, CreditCard, GraduationCap, Shield, Users, CheckCircle } from "lucide-react"
@@ -7,9 +6,35 @@ import { Button } from "../components/ui/Button"
 import TestimonialCard from "../components/TestimonialCard"
 import FeatureCard from "../components/FeatureCard"
 import { useAnimation } from "../hooks/useAnimation"
+import api from "../services/api"
+import toast from "react-hot-toast"
 
 export default function HomePage() {
   const { ref, AnimatedElement } = useAnimation()
+  const [popularLessons, setPopularLessons] = useState([])
+  const [testimonials, setTestimonials] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [lessonsRes, testimonialsRes] = await Promise.all([
+          api.getLessons(),
+          api.getTestimonials()
+        ])
+        
+        setPopularLessons(lessonsRes.data.filter(lesson => lesson.popular).slice(0, 3))
+        setTestimonials(testimonialsRes.data.slice(0, 3))
+      } catch (error) {
+        console.error("Error fetching data:", error)
+        toast.error("Failed to load some content")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
 
   const features = [
     {
@@ -41,53 +66,6 @@ export default function HomePage() {
       icon: <CheckCircle />,
       title: "DVLA Test Preparation",
       description: "Comprehensive preparation for Ghana's DVLA driving test requirements.",
-    },
-  ]
-
-  const lessons = [
-    {
-      title: "Beginner's Course",
-      description: "Perfect for first-time drivers with no prior experience.",
-      price: "GH₵1,500",
-      duration: "10 hours",
-      popular: true,
-    },
-    {
-      title: "Defensive Driving",
-      description: "Learn advanced techniques to stay safe on Ghana's roads.",
-      price: "GH₵1,800",
-      duration: "8 hours",
-      popular: false,
-    },
-    {
-      title: "Highway Confidence",
-      description: "Master highway driving with expert guidance.",
-      price: "GH₵1,200",
-      duration: "6 hours",
-      popular: false,
-    },
-  ]
-
-  const testimonials = [
-    {
-      name: "Kwame Mensah",
-      role: "New Driver",
-      image: "/placeholder.svg?height=100&width=100",
-      quote:
-        "The instructors were patient and helped me overcome my driving anxiety. I passed my DVLA test on the first try!",
-    },
-    {
-      name: "Ama Serwaa",
-      role: "University Student",
-      image: "/placeholder.svg?height=100&width=100",
-      quote:
-        "Flexible scheduling made it easy to fit lessons around my university classes at Legon. Great experience overall.",
-    },
-    {
-      name: "Kofi Adu",
-      role: "Working Professional",
-      image: "/placeholder.svg?height=100&width=100",
-      quote: "The defensive driving course improved my confidence on busy Accra roads. Highly recommended!",
     },
   ]
 
@@ -138,7 +116,7 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 0.2 }}
             >
               <img
-                src="/placeholder.svg?height=400&width=500"
+                src="/images/hero-image.jpg"
                 alt="Driving lesson in Ghana"
                 className="rounded-lg shadow-xl"
               />
@@ -189,38 +167,51 @@ export default function HomePage() {
             </p>
           </AnimatedElement>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {lessons.map((lesson, index) => (
-              <AnimatedElement
-                key={lesson.title}
-                animation="fadeInUp"
-                className="h-full"
-                style={{ transitionDelay: `${index * 0.1}s` }}
-              >
-                <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100 relative h-full transform transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
-                  {lesson.popular && (
-                    <div className="absolute top-4 right-4 bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
-                      Popular
-                    </div>
-                  )}
-                  <div className="p-6 flex flex-col h-full">
-                    <h3 className="text-xl font-bold mb-2">{lesson.title}</h3>
-                    <p className="text-gray-600 mb-4 flex-grow">{lesson.description}</p>
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-lg font-bold text-primary">{lesson.price}</span>
-                      <span className="text-sm text-gray-500">{lesson.duration}</span>
-                    </div>
-                    <Button
-                      asChild
-                      className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary-600 hover:to-secondary-600 transition-all duration-300"
-                    >
-                      <Link to={`/lessons/${lesson.title.toLowerCase().replace(/\s+/g, "-")}`}>View Details</Link>
-                    </Button>
-                  </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+                  <div className="h-48 bg-gray-200 rounded-lg mb-4"></div>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
                 </div>
-              </AnimatedElement>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {popularLessons.map((lesson, index) => (
+                <AnimatedElement
+                  key={lesson._id}
+                  animation="fadeInUp"
+                  className="h-full"
+                  style={{ transitionDelay: `${index * 0.1}s` }}
+                >
+                  <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-100 relative h-full transform transition-all duration-300 hover:shadow-xl hover:-translate-y-2">
+                    {lesson.popular && (
+                      <div className="absolute top-4 right-4 bg-gradient-to-r from-primary to-secondary text-white text-xs font-bold px-3 py-1 rounded-full animate-pulse">
+                        Popular
+                      </div>
+                    )}
+                    <div className="p-6 flex flex-col h-full">
+                      <h3 className="text-xl font-bold mb-2">{lesson.title}</h3>
+                      <p className="text-gray-600 mb-4 flex-grow">{lesson.description}</p>
+                      <div className="flex justify-between items-center mb-4">
+                        <span className="text-lg font-bold text-primary">GH₵{lesson.price.toLocaleString()}</span>
+                        <span className="text-sm text-gray-500">{lesson.duration} hours</span>
+                      </div>
+                      <Button
+                        asChild
+                        className="w-full bg-gradient-to-r from-primary to-secondary hover:from-primary-600 hover:to-secondary-600 transition-all duration-300"
+                      >
+                        <Link to={`/lessons/${lesson._id}`}>View Details</Link>
+                      </Button>
+                    </div>
+                  </div>
+                </AnimatedElement>
+              ))}
+            </div>
+          )}
 
           <AnimatedElement animation="fadeInUp" className="text-center mt-12">
             <Button
@@ -249,74 +240,40 @@ export default function HomePage() {
             </p>
           </AnimatedElement>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <AnimatedElement
-                key={testimonial.name}
-                animation="fadeInUp"
-                className="h-full"
-                style={{ transitionDelay: `${index * 0.1}s` }}
-              >
-                <TestimonialCard
-                  name={testimonial.name}
-                  role={testimonial.role}
-                  image={testimonial.image}
-                  quote={testimonial.quote}
-                />
-              </AnimatedElement>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Ghana Map Section */}
-      <section className="py-20 px-4 md:px-6 lg:px-8 bg-white">
-        <div className="container mx-auto max-w-6xl">
-          <AnimatedElement animation="fadeInUp" className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Serving All of Ghana
-            </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              We offer driving lessons across major cities in Ghana including Accra, Kumasi, Takoradi, and Tamale.
-            </p>
-          </AnimatedElement>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-            <AnimatedElement animation="fadeInLeft">
-              <div className="bg-gray-100 rounded-lg p-6 shadow-md">
-                <h3 className="text-xl font-bold mb-4">Our Locations</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-primary mr-2" />
-                    <span>Accra - East Legon, Osu, and Airport Residential</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-primary mr-2" />
-                    <span>Kumasi - Ahodwo and Nhyiaeso</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-primary mr-2" />
-                    <span>Takoradi - Anaji and Airport Ridge</span>
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle className="h-5 w-5 text-primary mr-2" />
-                    <span>Tamale - Jisonayili</span>
-                  </li>
-                </ul>
-                <Button asChild className="mt-6 bg-gradient-to-r from-primary to-secondary">
-                  <Link to="/contact">Find Nearest Location</Link>
-                </Button>
-              </div>
-            </AnimatedElement>
-
-            <AnimatedElement animation="fadeInRight">
-              <img
-                src="/placeholder.svg?height=400&width=500"
-                alt="Map of Ghana with our locations"
-                className="rounded-lg shadow-xl w-full h-auto"
-              />
-            </AnimatedElement>
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="bg-white rounded-lg shadow-md p-6 animate-pulse">
+                  <div className="flex items-center mb-4">
+                    <div className="h-12 w-12 bg-gray-200 rounded-full mr-4"></div>
+                    <div>
+                      <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-16"></div>
+                    </div>
+                  </div>
+                  <div className="h-20 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {testimonials.map((testimonial, index) => (
+                <AnimatedElement
+                  key={testimonial._id}
+                  animation="fadeInUp"
+                  className="h-full"
+                  style={{ transitionDelay: `${index * 0.1}s` }}
+                >
+                  <TestimonialCard
+                    name={testimonial.name}
+                    role={testimonial.role}
+                    image={testimonial.image}
+                    quote={testimonial.quote}
+                  />
+                </AnimatedElement>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -353,4 +310,3 @@ export default function HomePage() {
     </div>
   )
 }
-
