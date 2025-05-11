@@ -1,6 +1,4 @@
-"use client"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { usePaystackPayment } from "react-paystack"
 import { Button } from "./ui/Button"
@@ -17,9 +15,7 @@ import { cn } from "../lib/utils"
 import { motion } from "framer-motion"
 import toast from "react-hot-toast"
 import api from "../services/api"
-
-// Paystack configuration
-const paystackPublicKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_your_public_key"
+import { getPaystackConfig } from "../services/paystack"
 
 export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
   const navigate = useNavigate()
@@ -37,15 +33,24 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
   })
   const [error, setError] = useState(null)
 
-  // Mock time slots
-  const timeSlots = ["9:00 AM - 11:00 AM", "11:30 AM - 1:30 PM", "2:00 PM - 4:00 PM", "4:30 PM - 6:30 PM"]
+  // Time slots from API
+  const [timeSlots, setTimeSlots] = useState([])
+  
+  useEffect(() => {
+    const fetchTimeSlots = async () => {
+      try {
+        const response = await api.getAvailableTimeSlots(lessonId, date)
+        setTimeSlots(response.data)
+      } catch (error) {
+        console.error("Error fetching time slots:", error)
+        toast.error("Failed to load available time slots")
+      }
+    }
 
-  // Mobile money providers in Ghana
-  const mobileProviders = [
-    { value: "mtn", label: "MTN Mobile Money" },
-    { value: "vodafone", label: "Vodafone Cash" },
-    { value: "airtel", label: "AirtelTigo Money" },
-  ]
+    if (date) {
+      fetchTimeSlots()
+    }
+  }, [date, lessonId])
 
   const handleInputChange = (e) => {
     const { id, value } = e.target
@@ -59,7 +64,6 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
   const handleSubmitDetails = (e) => {
     e.preventDefault()
 
-    // Basic validation
     if (!formData.fullName || !formData.email || !formData.phone || !date || !timeSlot || !formData.vehicleType) {
       setError("Please fill in all required fields")
       return
@@ -69,49 +73,24 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
     setStep(2)
   }
 
-  // Configure Paystack
-  const config = {
-    reference: new Date().getTime().toString(),
-    email: formData.email,
-    amount: lessonPrice * 100, // Paystack amount is in pesewas (100 pesewas = 1 GHS)
-    publicKey: paystackPublicKey,
-    currency: "GHS",
-    channels: ["card", "bank", "mobile_money", "ussd"],
-    label: "DriveRight Academy",
-    metadata: {
-      custom_fields: [
-        {
-          display_name: "Lesson",
-          variable_name: "lesson",
-          value: lessonTitle,
-        },
-        {
-          display_name: "Customer Name",
-          variable_name: "customer_name",
-          value: formData.fullName,
-        },
-      ],
-    },
-  }
-
   // Initialize Paystack payment
-  const initializePayment = usePaystackPayment(config)
-
-  // Paystack callback functions
-  const onSuccess = (reference) => {
-    // Process enrollment after successful payment
-    processEnrollment(reference)
-  }
-
-  const onClose = () => {
-    toast.error("Payment cancelled")
-    setLoading(false)
-  }
+  const initializePayment = usePaystackPayment(
+    getPaystackConfig({
+      email: formData.email,
+      amount: lessonPrice,
+      lessonTitle,
+      fullName: formData.fullName,
+      onSuccess: (reference) => processEnrollment(reference),
+      onClose: () => {
+        toast.error("Payment cancelled")
+        setLoading(false)
+      },
+    })
+  )
 
   const processEnrollment = async (reference) => {
     setLoading(true)
     try {
-      // Prepare enrollment data
       const enrollmentData = {
         lessonId,
         lessonTitle,
@@ -126,7 +105,6 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
         amount: lessonPrice,
       }
 
-      // Send enrollment data to backend
       const response = await api.createEnrollment(enrollmentData)
 
       if (response.data.success) {
@@ -138,6 +116,7 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
     } catch (err) {
       console.error("Enrollment error:", err)
       setError(err.message || "Enrollment processing failed. Please try again.")
+      toast.error("Failed to complete enrollment")
     } finally {
       setLoading(false)
     }
@@ -150,16 +129,15 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
 
     try {
       if (paymentMethod === "card" || paymentMethod === "mobile") {
-        // Use Paystack for card and mobile money payments
-        initializePayment(onSuccess, onClose)
+        initializePayment()
       } else if (paymentMethod === "bank") {
-        // For bank transfers, create a pending enrollment
         const reference = `BANK-${Date.now()}-${Math.floor(Math.random() * 1000)}`
-        processEnrollment(reference)
+        await processEnrollment(reference)
       }
     } catch (err) {
       console.error("Payment error:", err)
       setError(err.message || "Payment processing failed. Please try again.")
+      toast.error("Payment failed")
       setLoading(false)
     }
   }
@@ -247,7 +225,6 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
                   onSelect={setDate}
                   initialFocus
                   disabled={(date) => {
-                    // Disable past dates and Sundays
                     const today = new Date()
                     today.setHours(0, 0, 0, 0)
                     const day = date.getDay()
@@ -390,7 +367,6 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
 
           <form onSubmit={handlePayment} className="space-y-4">
             <Tabs value={paymentTab} onValueChange={setPaymentTab} className="w-full">
-              {/* Payment method descriptions */}
               <TabsContent value="card" className="space-y-4 mt-0">
                 <p className="text-sm text-gray-600">
                   Pay securely with your credit or debit card. We accept Visa, Mastercard, and other major cards.
@@ -413,7 +389,11 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
                     <option value="" disabled>
                       Select provider
                     </option>
-                    {mobileProviders.map((provider) => (
+                    {[
+                      { value: "mtn", label: "MTN Mobile Money" },
+                      { value: "vodafone", label: "Vodafone Cash" },
+                      { value: "airtel", label: "AirtelTigo Money" },
+                    ].map((provider) => (
                       <option key={provider.value} value={provider.value}>
                         {provider.label}
                       </option>
@@ -482,4 +462,3 @@ export default function EnrollmentForm({ lessonId, lessonTitle, lessonPrice }) {
     </motion.div>
   )
 }
-
