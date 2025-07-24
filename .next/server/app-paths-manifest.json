@@ -3,5 +3,6 @@
   "/lessons/page": "app/lessons/page.js",
   "/about/page": "app/about/page.js",
   "/faq/page": "app/faq/page.js",
-  "/blog/page": "app/blog/page.js"
+  "/blog/page": "app/blog/page.js",
+  "/contact/page": "app/contact/page.js"
 }
